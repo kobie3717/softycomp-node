@@ -1,0 +1,46 @@
+{
+  "name": "softycomp-node",
+  "version": "1.0.0",
+  "description": "Node.js SDK for SoftyComp — South African bill presentment and debit order platform",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "softycomp",
+    "south-africa",
+    "payments",
+    "debit-order",
+    "billing",
+    "nodejs",
+    "typescript",
+    "zar",
+    "bill-presentment",
+    "recurring-billing"
+  ],
+  "author": "Kobus van Schoor",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kobie3717/softycomp-node.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kobie3717/softycomp-node/issues"
+  },
+  "homepage": "https://github.com/kobie3717/softycomp-node#readme",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.130",
+    "typescript": "^5.9.3"
+  }
+}
