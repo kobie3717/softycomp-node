@@ -168,9 +168,9 @@ export class SoftyComp {
 
     // Base URL mapping
     if (this.sandbox) {
-      this.baseUrl = 'https://testapi.softycompdistribution.co.za/SoftyCompBureauAPI';
+      this.baseUrl = 'https://sandbox.softycomp.co.za/SoftyCompBureauAPI';
     } else {
-      this.baseUrl = 'https://api.softycompdistribution.co.za/SoftyCompBureauAPI';
+      this.baseUrl = 'https://api.softycomp.co.za/SoftyCompBureauAPI';
     }
 
     if (!this.apiKey || !this.secretKey) {

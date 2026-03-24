@@ -70,8 +70,8 @@ const client = new SoftyComp({
 ```
 
 **Environments:**
-- **Sandbox:** `testapi.softycompdistribution.co.za`
-- **Production:** `api.softycompdistribution.co.za`
+- **Sandbox:** `sandbox.softycomp.co.za`
+- **Production:** `api.softycomp.co.za`
 
 ### Create Bill
 
