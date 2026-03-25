@@ -11,7 +11,7 @@ import crypto from 'crypto';
 
 // ==================== Types ====================
 
-export type BillFrequency = 'once-off' | 'monthly' | 'yearly';
+export type BillFrequency = 'once-off' | 'monthly' | 'weekly' | 'yearly' | 'subscription';
 export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'cancelled';
 export type WebhookType = 'pending' | 'successful' | 'failed' | 'cancelled';
 
@@ -39,7 +39,7 @@ export interface CreateBillParams {
   reference: string;
   /** Bill description */
   description?: string;
-  /** Payment frequency: 'once-off', 'monthly', or 'yearly' */
+  /** Payment frequency: 'once-off', 'weekly', 'monthly', 'yearly', or 'subscription' */
   frequency: BillFrequency;
   /** Commencement date for recurring bills (YYYY-MM-DD). Must be future date (min tomorrow). Ignored for once-off. */
   commencementDate?: string;
@@ -268,8 +268,12 @@ export class SoftyComp {
   async createBill(params: CreateBillParams): Promise<CreateBillResult> {
     const isRecurring = params.frequency !== 'once-off';
 
-    // Frequency type mapping: 1=once-off, 2=monthly, 6=yearly (valid range is 1-6)
-    const frequencyTypeID = params.frequency === 'yearly' ? 6 : params.frequency === 'monthly' ? 2 : 1;
+    // Frequency type mapping from SoftyComp docs:
+    // 1=Once Off, 2=Monthly, 3=Weekly, 4=Yearly, 5=To Collect Amount, 6=Subscription
+    const frequencyMap: Record<BillFrequency, number> = {
+      'once-off': 1, 'monthly': 2, 'weekly': 3, 'yearly': 4, 'subscription': 6
+    };
+    const frequencyTypeID = frequencyMap[params.frequency] ?? 1;
 
     // Build the bill item
     const item: Record<string, any> = {
@@ -307,7 +311,12 @@ export class SoftyComp {
         item.RecurringMonth = null;
       }
 
-      item.DayOfWeek = null;
+      // DayOfWeek required for weekly frequency (1=Monday...7=Sunday)
+      if (params.frequency === 'weekly') {
+        item.DayOfWeek = params.recurringDay || commencementDate.getDay() || 7; // JS Sunday=0 → 7
+      } else {
+        item.DayOfWeek = null;
+      }
       item.ExpiryDate = null;
       item.InitialAmount = null;
       item.ToCollectAmount = null;
