@@ -3,6 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/softycomp-node.svg)](https://www.npmjs.com/package/softycomp-node)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/Y2jCXNGgE)
 
 **Official Node.js SDK for SoftyComp** — South African bill presentment and debit order platform.
 
@@ -571,6 +572,12 @@ Before going live:
 6. **Implement idempotency** to avoid duplicate processing
 7. **Log all transactions** for debugging and reconciliation
 8. **Set up monitoring** for failed webhooks
+
+## Community
+
+Join our Discord for help, discussions, and announcements:
+
+- **Discord:** [https://discord.gg/Y2jCXNGgE](https://discord.gg/Y2jCXNGgE)
 
 ## License
 
