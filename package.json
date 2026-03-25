@@ -1,6 +1,6 @@
 {
   "name": "softycomp-node",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Node.js SDK for SoftyComp — South African bill presentment and debit order platform",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

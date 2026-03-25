@@ -477,11 +477,13 @@ export class SoftyComp {
   parseWebhook(body: any): WebhookEvent {
     const event: WebhookPayload = typeof body === 'string' ? JSON.parse(body) : body;
 
-    // activityTypeID mapping: 1=Pending, 2=Successful, 3=Failed, 4=Cancelled
+    // Handle both field names: activityTypeID (docs) and WebhookTypeID (observed)
+    // Mapping: 1=Pending, 2=Successful, 3=Failed, 4=Cancelled
+    const typeId = event.activityTypeID || (event as any).WebhookTypeID || 1;
     let type: WebhookType = 'pending';
     let status: PaymentStatus = 'pending';
 
-    switch (event.activityTypeID) {
+    switch (typeId) {
       case 2:
         type = 'successful';
         status = 'completed';
