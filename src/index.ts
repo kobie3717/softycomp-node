@@ -268,8 +268,8 @@ export class SoftyComp {
   async createBill(params: CreateBillParams): Promise<CreateBillResult> {
     const isRecurring = params.frequency !== 'once-off';
 
-    // Frequency type mapping: 1=once-off, 2=monthly, 7=yearly
-    const frequencyTypeID = params.frequency === 'yearly' ? 7 : params.frequency === 'monthly' ? 2 : 1;
+    // Frequency type mapping: 1=once-off, 2=monthly, 6=yearly (valid range is 1-6)
+    const frequencyTypeID = params.frequency === 'yearly' ? 6 : params.frequency === 'monthly' ? 2 : 1;
 
     // Build the bill item
     const item: Record<string, any> = {
