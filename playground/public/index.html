@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SoftyComp Developer Playground</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="container">
+      <div class="header-content">
+        <div class="logo">
+          <div class="logo-icon">SC</div>
+          <div class="logo-text">
+            <h1>SoftyComp Developer Playground</h1>
+            <p>Interactive API Explorer — powered by softycomp-node</p>
+          </div>
+        </div>
+        <div class="connection-status" id="connectionStatus">
+          <div class="status-dot"></div>
+          <span>Connecting...</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <div class="container">
+    <!-- Navigation Tabs -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="dashboard">Dashboard</button>
+      <button class="tab" data-tab="cards">Card Payments</button>
+      <button class="tab" data-tab="bills">Bill Management</button>
+      <button class="tab" data-tab="debit">Debit Orders</button>
+      <button class="tab" data-tab="clients">Clients & Payouts</button>
+      <button class="tab" data-tab="webhooks">Webhooks</button>
+      <button class="tab" data-tab="code">Code Examples</button>
+      <button class="tab" data-tab="reference">API Reference</button>
+    </nav>
+
+    <!-- Tab Content -->
+    <div class="tab-content active" id="dashboard">
+      <div class="section">
+        <h2>Welcome to SoftyComp Developer Playground</h2>
+        <p class="subtitle">Test and explore all SoftyComp API features with interactive examples</p>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon">🔐</div>
+            <div class="stat-value" id="authStatus">Loading...</div>
+            <div class="stat-label">Authentication</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">🌐</div>
+            <div class="stat-value">Sandbox</div>
+            <div class="stat-label">Environment</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📦</div>
+            <div class="stat-value">v1.1.0</div>
+            <div class="stat-label">SDK Version</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📡</div>
+            <div class="stat-value" id="webhookCount">0</div>
+            <div class="stat-label">Webhooks Received</div>
+          </div>
+        </div>
+
+        <div class="install-section">
+          <h3>Quick Start</h3>
+          <div class="code-block">
+            <code>npm install softycomp-node</code>
+            <button class="copy-btn" onclick="copyToClipboard('npm install softycomp-node')">Copy</button>
+          </div>
+        </div>
+
+        <div class="features-grid">
+          <div class="feature-card">
+            <h4>💳 Card Payments</h4>
+            <p>Create once-off and recurring payment bills with hosted checkout pages</p>
+          </div>
+          <div class="feature-card">
+            <h4>📝 Bill Management</h4>
+            <p>Update, expire, and track bill status with full audit trail</p>
+          </div>
+          <div class="feature-card">
+            <h4>🔄 Debit Orders</h4>
+            <p>Mobi-Mandate integration for monthly and yearly collections</p>
+          </div>
+          <div class="feature-card">
+            <h4>👥 Client Management</h4>
+            <p>Create client profiles and process payouts to bank accounts</p>
+          </div>
+          <div class="feature-card">
+            <h4>🔔 Webhooks</h4>
+            <p>Real-time payment notifications with signature verification</p>
+          </div>
+          <div class="feature-card">
+            <h4>🔐 Type-Safe</h4>
+            <p>Full TypeScript support with autocomplete and type checking</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="cards">
+      <div class="section">
+        <h2>Card Payments (Bill Presentment)</h2>
+        <p class="subtitle">Create hosted payment links for once-off or recurring bills</p>
+
+        <form class="form" id="createBillForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Amount (Rands)</label>
+              <input type="number" step="0.01" name="amount" placeholder="299.00" required>
+            </div>
+            <div class="form-group">
+              <label>Reference</label>
+              <input type="text" name="reference" placeholder="INV-001" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Customer Name</label>
+              <input type="text" name="customerName" placeholder="John Doe" required>
+            </div>
+            <div class="form-group">
+              <label>Customer Email</label>
+              <input type="email" name="customerEmail" placeholder="john@example.com" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Customer Phone</label>
+              <input type="tel" name="customerPhone" placeholder="0825551234" required>
+            </div>
+            <div class="form-group">
+              <label>Frequency</label>
+              <select name="frequency" id="billFrequency" required>
+                <option value="once-off">Once-off</option>
+                <option value="monthly">Monthly</option>
+                <option value="weekly">Weekly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Description (optional)</label>
+            <input type="text" name="description" placeholder="Payment for services">
+          </div>
+
+          <div id="recurringFields" style="display: none;">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Commencement Date</label>
+                <input type="date" name="commencementDate" id="commencementDate">
+              </div>
+              <div class="form-group" id="recurringDayGroup">
+                <label>Recurring Day (1-28)</label>
+                <input type="number" min="1" max="28" name="recurringDay" placeholder="1">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group" id="recurringMonthGroup" style="display: none;">
+                <label>Recurring Month</label>
+                <select name="recurringMonth">
+                  <option value="">Select month</option>
+                  <option value="1">January</option>
+                  <option value="2">February</option>
+                  <option value="3">March</option>
+                  <option value="4">April</option>
+                  <option value="5">May</option>
+                  <option value="6">June</option>
+                  <option value="7">July</option>
+                  <option value="8">August</option>
+                  <option value="9">September</option>
+                  <option value="10">October</option>
+                  <option value="11">November</option>
+                  <option value="12">December</option>
+                </select>
+              </div>
+              <div class="form-group" id="dayOfWeekGroup" style="display: none;">
+                <label>Day of Week</label>
+                <select name="dayOfWeek">
+                  <option value="">Select day</option>
+                  <option value="1">Monday</option>
+                  <option value="2">Tuesday</option>
+                  <option value="3">Wednesday</option>
+                  <option value="4">Thursday</option>
+                  <option value="5">Friday</option>
+                  <option value="6">Saturday</option>
+                  <option value="7">Sunday</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Create Payment Bill</button>
+          </div>
+        </form>
+
+        <div id="billResult" class="result-section" style="display: none;">
+          <h3>Payment Bill Created</h3>
+          <div class="result-card">
+            <div class="result-item">
+              <strong>Reference:</strong>
+              <span id="billReference"></span>
+            </div>
+            <div class="result-item">
+              <strong>Payment URL:</strong>
+              <a href="#" id="billUrl" target="_blank" class="payment-link"></a>
+              <button class="copy-btn-small" onclick="copyBillUrl()">Copy</button>
+            </div>
+            <div class="result-item">
+              <strong>Expires At:</strong>
+              <span id="billExpires"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="bills">
+      <div class="section">
+        <h2>Bill Management</h2>
+        <p class="subtitle">Get status, update, expire bills, and view audit trail</p>
+
+        <div class="form-grid">
+          <div class="form-section">
+            <h3>Get Bill Status</h3>
+            <form class="form" id="getBillForm">
+              <div class="form-group">
+                <label>Bill Reference</label>
+                <input type="text" name="reference" placeholder="BILL-REF-123" required>
+              </div>
+              <button type="submit" class="btn btn-primary">Get Status</button>
+            </form>
+            <div id="billStatusResult" class="result-section" style="display: none;"></div>
+          </div>
+
+          <div class="form-section">
+            <h3>Update Bill</h3>
+            <form class="form" id="updateBillForm">
+              <div class="form-group">
+                <label>Bill Reference</label>
+                <input type="text" name="reference" placeholder="BILL-REF-123" required>
+              </div>
+              <div class="form-group">
+                <label>New Amount (optional)</label>
+                <input type="number" step="0.01" name="amount" placeholder="399.00">
+              </div>
+              <div class="form-group">
+                <label>New Description (optional)</label>
+                <input type="text" name="description" placeholder="Updated description">
+              </div>
+              <button type="submit" class="btn btn-primary">Update Bill</button>
+            </form>
+          </div>
+
+          <div class="form-section">
+            <h3>Expire / Cancel Bill</h3>
+            <form class="form" id="expireBillForm">
+              <div class="form-group">
+                <label>Bill Reference</label>
+                <input type="text" name="reference" placeholder="BILL-REF-123" required>
+              </div>
+              <div class="form-group">
+                <label>User Reference (optional)</label>
+                <input type="text" name="userReference" placeholder="USER-REF-123">
+              </div>
+              <button type="submit" class="btn btn-danger">Expire Bill</button>
+            </form>
+          </div>
+
+          <div class="form-section">
+            <h3>Bill Audit Trail</h3>
+            <form class="form" id="auditBillForm">
+              <div class="form-group">
+                <label>Bill Reference</label>
+                <input type="text" name="reference" placeholder="BILL-REF-123" required>
+              </div>
+              <div class="form-group">
+                <label>User Reference (optional)</label>
+                <input type="text" name="userRef" placeholder="USER-REF-123">
+              </div>
+              <button type="submit" class="btn btn-primary">Get Audit Trail</button>
+            </form>
+            <div id="auditResult" class="result-section" style="display: none;"></div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3>Re-authenticate Bill (Card Expiry)</h3>
+          <form class="form" id="reauthBillForm">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Old Reference</label>
+                <input type="text" name="oldReference" placeholder="OLD-BILL-123" required>
+              </div>
+              <div class="form-group">
+                <label>New Reference (must differ)</label>
+                <input type="text" name="newReference" placeholder="NEW-BILL-456" required>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Amount</label>
+                <input type="number" step="0.01" name="amount" placeholder="99.00" required>
+              </div>
+              <div class="form-group">
+                <label>Billing Cycle</label>
+                <select name="billingCycle" required>
+                  <option value="MONTHLY">Monthly</option>
+                  <option value="YEARLY">Yearly</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Customer Name</label>
+                <input type="text" name="customerName" placeholder="John Doe" required>
+              </div>
+              <div class="form-group">
+                <label>Customer Email</label>
+                <input type="email" name="customerEmail" placeholder="john@example.com" required>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Customer Phone</label>
+                <input type="tel" name="customerPhone" placeholder="0825551234" required>
+              </div>
+              <div class="form-group">
+                <label>Description</label>
+                <input type="text" name="description" placeholder="Monthly subscription" required>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Create Re-auth Bill</button>
+          </form>
+          <div id="reauthResult" class="result-section" style="display: none;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="debit">
+      <div class="section">
+        <h2>Debit Orders (Mobi-Mandate)</h2>
+        <p class="subtitle">Create debit order mandates and manage collection status</p>
+
+        <div class="form-grid">
+          <div class="form-section full-width">
+            <h3>Create Mobi-Mandate</h3>
+            <form class="form" id="createMandateForm">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Customer Email</label>
+                  <input type="email" name="customerEmail" placeholder="john@example.com" required>
+                </div>
+                <div class="form-group">
+                  <label>Customer Phone</label>
+                  <input type="tel" name="customerPhone" placeholder="0825551234" required>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Surname</label>
+                  <input type="text" name="surname" placeholder="Doe" required>
+                </div>
+                <div class="form-group">
+                  <label>Initials</label>
+                  <input type="text" name="initials" placeholder="J">
+                </div>
+                <div class="form-group">
+                  <label>ID Number (optional)</label>
+                  <input type="text" name="idNumber" placeholder="8001015009087">
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Amount (Rands)</label>
+                  <input type="number" step="0.01" name="amount" placeholder="99.00" required>
+                </div>
+                <div class="form-group">
+                  <label>Frequency</label>
+                  <select name="frequency" required>
+                    <option value="monthly">Monthly</option>
+                    <option value="yearly">Yearly</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Debit Day (1-28)</label>
+                  <input type="number" min="1" max="28" name="debitDay" placeholder="1" required>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Description</label>
+                <input type="text" name="description" placeholder="Monthly subscription">
+              </div>
+
+              <div class="form-group">
+                <label>Commencement Date (optional)</label>
+                <input type="date" name="commencementDate">
+              </div>
+
+              <button type="submit" class="btn btn-primary">Create Mandate</button>
+            </form>
+            <div id="mandateResult" class="result-section" style="display: none;"></div>
+          </div>
+
+          <div class="form-section">
+            <h3>Update Collection Status</h3>
+            <form class="form" id="updateCollectionForm">
+              <div class="form-group">
+                <label>Collection ID</label>
+                <input type="number" name="collectionId" placeholder="12345" required>
+              </div>
+              <div class="form-group">
+                <label>Status</label>
+                <select name="statusTypeId" required>
+                  <option value="1">Active</option>
+                  <option value="2">Suspended</option>
+                  <option value="6">Cancelled</option>
+                </select>
+              </div>
+              <button type="submit" class="btn btn-primary">Update Status</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="clients">
+      <div class="section">
+        <h2>Clients & Payouts</h2>
+        <p class="subtitle">Create client profiles and process credit distributions</p>
+
+        <div class="form-grid">
+          <div class="form-section">
+            <h3>Create Client</h3>
+            <form class="form" id="createClientForm">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>First Name</label>
+                  <input type="text" name="name" placeholder="John" required>
+                </div>
+                <div class="form-group">
+                  <label>Surname</label>
+                  <input type="text" name="surname" placeholder="Doe" required>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Email</label>
+                  <input type="email" name="email" placeholder="john@example.com" required>
+                </div>
+                <div class="form-group">
+                  <label>Phone</label>
+                  <input type="tel" name="phone" placeholder="0825551234" required>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>ID Number (optional)</label>
+                <input type="text" name="idNumber" placeholder="8001015009087">
+              </div>
+              <button type="submit" class="btn btn-primary">Create Client</button>
+            </form>
+            <div id="clientResult" class="result-section" style="display: none;"></div>
+          </div>
+
+          <div class="form-section">
+            <h3>Credit Distribution (Payout)</h3>
+            <form class="form" id="createPayoutForm">
+              <div class="form-group">
+                <label>Amount (Rands)</label>
+                <input type="number" step="0.01" name="amount" placeholder="500.00" required>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Account Number</label>
+                  <input type="text" name="accountNumber" placeholder="1234567890" required>
+                </div>
+                <div class="form-group">
+                  <label>Branch Code</label>
+                  <input type="text" name="branchCode" placeholder="123456" required>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Account Name</label>
+                <input type="text" name="accountName" placeholder="John Doe" required>
+              </div>
+              <div class="form-group">
+                <label>Reference</label>
+                <input type="text" name="reference" placeholder="PAYOUT-001" required>
+              </div>
+              <button type="submit" class="btn btn-primary">Process Payout</button>
+            </form>
+            <div id="payoutResult" class="result-section" style="display: none;"></div>
+          </div>
+
+          <div class="form-section">
+            <h3>Process Refund</h3>
+            <form class="form" id="createRefundForm">
+              <div class="form-group">
+                <label>Transaction ID</label>
+                <input type="text" name="transactionId" placeholder="TXN-123" required>
+              </div>
+              <div class="form-group">
+                <label>Amount (optional, leave blank for full refund)</label>
+                <input type="number" step="0.01" name="amount" placeholder="50.00">
+              </div>
+              <button type="submit" class="btn btn-primary">Process Refund</button>
+            </form>
+            <div id="refundResult" class="result-section" style="display: none;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="webhooks">
+      <div class="section">
+        <h2>Webhooks</h2>
+        <p class="subtitle">Live webhook feed and history</p>
+
+        <div class="webhook-info">
+          <div class="info-card">
+            <strong>Webhook URL:</strong>
+            <code>http://localhost:4021/webhook</code>
+          </div>
+          <div class="info-card">
+            <strong>Event Types:</strong>
+            <span class="badge badge-pending">Pending</span>
+            <span class="badge badge-success">Successful</span>
+            <span class="badge badge-failed">Failed</span>
+            <span class="badge badge-cancelled">Cancelled</span>
+          </div>
+        </div>
+
+        <div class="webhook-feed">
+          <h3>Live Feed</h3>
+          <div id="webhookFeed" class="webhook-list">
+            <div class="webhook-empty">No webhooks received yet. Create a payment to see events.</div>
+          </div>
+        </div>
+
+        <div class="webhook-history">
+          <h3>History</h3>
+          <div id="webhookHistory" class="webhook-list">
+            <div class="webhook-empty">No webhook history</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="code">
+      <div class="section">
+        <h2>Code Examples</h2>
+        <p class="subtitle">Copy-paste examples for all SoftyComp operations</p>
+
+        <div class="code-examples">
+          <div class="example-section">
+            <h3>Installation & Setup</h3>
+            <div class="code-container">
+              <pre><code>npm install softycomp-node</code></pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-container">
+              <pre><code>import { SoftyComp } from 'softycomp-node';
+
+const client = new SoftyComp({
+  apiKey: 'your-api-key',
+  secretKey: 'your-secret-key',
+  sandbox: true,
+});</code></pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+          </div>
+
+          <div class="example-section">
+            <h3>Create Once-off Bill</h3>
+            <div class="code-container">
+              <pre><code>const bill = await client.createBill({
+  amount: 299.00,
+  customerName: 'John Doe',
+  customerEmail: 'john@example.com',
+  customerPhone: '0825551234',
+  reference: 'INV-001',
+  frequency: 'once-off',
+  returnUrl: 'https://myapp.com/success',
+  cancelUrl: 'https://myapp.com/cancel',
+  notifyUrl: 'https://myapp.com/webhook',
+});
+
+// Redirect customer to payment page
+console.log(bill.paymentUrl);</code></pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+          </div>
+
+          <div class="example-section">
+            <h3>Create Monthly Subscription</h3>
+            <div class="code-container">
+              <pre><code>const bill = await client.createBill({
+  amount: 99.00,
+  customerName: 'John Doe',
+  customerEmail: 'john@example.com',
+  customerPhone: '0825551234',
+  reference: 'SUB-001',
+  description: 'Premium Monthly Subscription',
+  frequency: 'monthly',
+  commencementDate: '2026-04-01',
+  recurringDay: 1,
+  returnUrl: 'https://myapp.com/success',
+  cancelUrl: 'https://myapp.com/cancel',
+  notifyUrl: 'https://myapp.com/webhook',
+});</code></pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+          </div>
+
+          <div class="example-section">
+            <h3>Get Bill Status</h3>
+            <div class="code-container">
+              <pre><code>const status = await client.getBillStatus('BILL-REF-123');
+
+if (status.status === 'completed') {
+  console.log('Payment received on:', status.paidAt);
+}</code></pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+          </div>
+
+          <div class="example-section">
+            <h3>Create Debit Order Mandate</h3>
+            <div class="code-container">
+              <pre><code>const mandate = await client.createMobiMandate({
+  customerEmail: 'john@example.com',
+  customerPhone: '0825551234',
+  surname: 'Doe',
+  initials: 'J',
+  amount: 99.00,
+  frequency: 'monthly',
+  debitDay: 1,
+  description: 'Monthly subscription',
+  successUrl: 'https://myapp.com/success',
+});
+
+// Redirect customer to sign mandate
+console.log(mandate.url);</code></pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+          </div>
+
+          <div class="example-section">
+            <h3>Webhook Handler</h3>
+            <div class="code-container">
+              <pre><code>app.post('/webhook', express.json(), (req, res) => {
+  const event = client.parseWebhook(req.body);
+
+  switch (event.type) {
+    case 'successful':
+      console.log('Payment successful!');
+      console.log('Reference:', event.reference);
+      console.log('Amount: R' + event.amount);
+      break;
+    case 'failed':
+      console.log('Payment failed:', event.reference);
+      break;
+  }
+
+  res.status(200).send('OK');
+});</code></pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+          </div>
+
+          <div class="example-section">
+            <h3>Process Refund</h3>
+            <div class="code-container">
+              <pre><code>// Full refund
+const refund = await client.refund({
+  transactionId: 'TXN-123',
+});
+
+// Partial refund
+const refund = await client.refund({
+  transactionId: 'TXN-123',
+  amount: 50.00,
+});</code></pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+          </div>
+
+          <div class="example-section">
+            <h3>Update Bill</h3>
+            <div class="code-container">
+              <pre><code>await client.updateBillPresentment({
+  reference: 'BILL-REF-123',
+  amount: 399.00,
+  description: 'Updated description',
+  customerName: 'John Doe',
+  customerEmail: 'john@example.com',
+  customerPhone: '0825551234',
+});</code></pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+          </div>
+
+          <div class="example-section">
+            <h3>Expire/Cancel Bill</h3>
+            <div class="code-container">
+              <pre><code>await client.setBillToExpiredStatus('BILL-REF-123', 'USER-REF-123');</code></pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+          </div>
+
+          <div class="example-section">
+            <h3>Get Bill Audit Trail</h3>
+            <div class="code-container">
+              <pre><code>const audits = await client.listBillPresentmentAudits(
+  'BILL-REF-123',
+  'USER-REF-123'
+);
+
+audits.forEach(audit => {
+  console.log(`${audit.timestamp}: ${audit.description}`);
+});</code></pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+          </div>
+
+          <div class="example-section">
+            <h3>Create Client</h3>
+            <div class="code-container">
+              <pre><code>const clientId = await client.createClient({
+  name: 'John',
+  surname: 'Doe',
+  email: 'john@example.com',
+  phone: '0825551234',
+  idNumber: '8001015009087',
+});</code></pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+          </div>
+
+          <div class="example-section">
+            <h3>Update Collection Status</h3>
+            <div class="code-container">
+              <pre><code>await client.updateCollectionStatus({
+  collectionId: 12345,
+  statusTypeId: 2, // 1=Active, 2=Suspended, 6=Cancelled
+});</code></pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+          </div>
+
+          <div class="example-section">
+            <h3>Credit Distribution (Payout)</h3>
+            <div class="code-container">
+              <pre><code>const result = await client.createCreditDistribution({
+  amount: 500.00,
+  accountNumber: '1234567890',
+  branchCode: '123456',
+  accountName: 'John Doe',
+  reference: 'PAYOUT-001',
+});</code></pre>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="reference">
+      <div class="section">
+        <h2>API Reference</h2>
+        <p class="subtitle">Complete list of all SoftyComp API endpoints</p>
+
+        <div class="api-reference">
+          <div class="api-category">
+            <h3>Bill Presentment</h3>
+            <div class="api-endpoint">
+              <div class="endpoint-header">
+                <span class="method method-post">POST</span>
+                <code>/api/paygatecontroller/requestbillpresentment</code>
+              </div>
+              <p>Create a payment bill (once-off or recurring)</p>
+            </div>
+            <div class="api-endpoint">
+              <div class="endpoint-header">
+                <span class="method method-get">GET</span>
+                <code>/api/paygatecontroller/listBillPresentmentDetails/:ref/:userRef</code>
+              </div>
+              <p>Get bill payment status</p>
+            </div>
+            <div class="api-endpoint">
+              <div class="endpoint-header">
+                <span class="method method-post">POST</span>
+                <code>/api/paygatecontroller/updateBillPresentment</code>
+              </div>
+              <p>Update bill details (amount, description, customer info)</p>
+            </div>
+            <div class="api-endpoint">
+              <div class="endpoint-header">
+                <span class="method method-post">POST</span>
+                <code>/api/paygatecontroller/setBillToExpiredStatus/:ref/:userRef</code>
+              </div>
+              <p>Expire/cancel a bill</p>
+            </div>
+            <div class="api-endpoint">
+              <div class="endpoint-header">
+                <span class="method method-get">GET</span>
+                <code>/api/paygatecontroller/listBillPresentmentAudits/:ref/:userRef</code>
+              </div>
+              <p>Get bill audit trail</p>
+            </div>
+            <div class="api-endpoint">
+              <div class="endpoint-header">
+                <span class="method method-post">POST</span>
+                <code>/api/paygatecontroller/reauthBillPresentment</code>
+              </div>
+              <p>Re-authenticate bill for card expiry (creates new bill linked to old)</p>
+            </div>
+          </div>
+
+          <div class="api-category">
+            <h3>Refunds</h3>
+            <div class="api-endpoint">
+              <div class="endpoint-header">
+                <span class="method method-post">POST</span>
+                <code>/api/paygatecontroller/requestCreditTransaction</code>
+              </div>
+              <p>Process full or partial refund</p>
+            </div>
+          </div>
+
+          <div class="api-category">
+            <h3>Client Management</h3>
+            <div class="api-endpoint">
+              <div class="endpoint-header">
+                <span class="method method-post">POST</span>
+                <code>/api/clients/createclient</code>
+              </div>
+              <p>Create a new client profile</p>
+            </div>
+          </div>
+
+          <div class="api-category">
+            <h3>Debit Orders</h3>
+            <div class="api-endpoint">
+              <div class="endpoint-header">
+                <span class="method method-post">POST</span>
+                <code>/api/mobimandate/generateMobiMandateRequest</code>
+              </div>
+              <p>Create Mobi-Mandate for debit order sign-up</p>
+            </div>
+            <div class="api-endpoint">
+              <div class="endpoint-header">
+                <span class="method method-post">POST</span>
+                <code>/api/collections/updateCollectionStatus</code>
+              </div>
+              <p>Update collection status (activate/suspend/cancel)</p>
+            </div>
+          </div>
+
+          <div class="api-category">
+            <h3>Payouts</h3>
+            <div class="api-endpoint">
+              <div class="endpoint-header">
+                <span class="method method-post">POST</span>
+                <code>/api/creditdistribution/createCreditDistribution</code>
+              </div>
+              <p>Create credit distribution (payout to bank account)</p>
+            </div>
+          </div>
+
+          <div class="api-category">
+            <h3>Authentication</h3>
+            <div class="api-endpoint">
+              <div class="endpoint-header">
+                <span class="method method-post">POST</span>
+                <code>/api/auth/generatetoken</code>
+              </div>
+              <p>Generate Bearer token (handled automatically by SDK)</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="test-cards">
+          <h3>Test Cards (Sandbox Only)</h3>
+          <table class="cards-table">
+            <thead>
+              <tr>
+                <th>Card Number</th>
+                <th>3DS</th>
+                <th>MOTO</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>4790 4444 4444 4444</code></td>
+                <td><span class="badge badge-success">Success</span></td>
+                <td><span class="badge badge-success">Success</span></td>
+                <td>Both 3DS and MOTO succeed</td>
+              </tr>
+              <tr>
+                <td><code>4790 3333 3333 3333</code></td>
+                <td><span class="badge badge-success">Success</span></td>
+                <td><span class="badge badge-failed">Fail</span></td>
+                <td>3DS succeeds, MOTO fails</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="note"><strong>CVV:</strong> Any 3 digits | <strong>Expiry:</strong> Any future date</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <p>Built with <strong>softycomp-node</strong> — the first Node.js SDK for SoftyComp</p>
+      <p>
+        <a href="https://www.npmjs.com/package/softycomp-node" target="_blank">npm install softycomp-node</a> |
+        <a href="https://github.com/kobie3717/softycomp-node" target="_blank">GitHub</a> |
+        <a href="https://softycompdistribution.co.za" target="_blank">SoftyComp</a>
+      </p>
+    </div>
+  </footer>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

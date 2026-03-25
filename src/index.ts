@@ -975,6 +975,7 @@ export class SoftyComp {
             branchCode: params.branchCode,
             accountName: params.accountName,
             reference: params.reference,
+            userReference: params.reference, // Required by SoftyComp API
           },
         ],
       },

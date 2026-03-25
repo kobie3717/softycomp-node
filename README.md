@@ -22,6 +22,24 @@ Accept once-off and recurring payments via card, EFT, and debit order with a sim
 - **Zero Dependencies** — Uses native `fetch()` (Node.js 18+)
 - **Sandbox Support** — Test with sandbox environment before going live
 
+## Developer Playground
+
+Try the interactive API explorer at `playground/` — a beautiful web interface to test all SoftyComp features:
+
+```bash
+cd playground
+npm install
+npm start
+```
+
+Then visit http://localhost:4021 to explore:
+- Create bills (once-off, monthly, weekly, yearly, subscription)
+- Manage bills (status, update, expire, audit trail, re-auth)
+- Debit orders (Mobi-Mandate)
+- Client management & payouts
+- Live webhook feed
+- Code examples & API reference
+
 ## Installation
 
 ```bash
