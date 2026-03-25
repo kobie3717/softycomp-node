@@ -405,7 +405,7 @@ Before going live:
 
 ## License
 
-MIT © Kobus van Schoor
+MIT © Kobie Wentzel
 
 ## Links
 
@@ -415,4 +415,4 @@ MIT © Kobus van Schoor
 
 ---
 
-**Built by [Kobus van Schoor](https://github.com/kobie3717)** for the South African developer community.
+**Built by [Kobie Wentzel](https://github.com/kobie3717)** for the South African developer community.
