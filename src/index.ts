@@ -122,6 +122,155 @@ export interface BillStatusResult {
   data: any;
 }
 
+export interface UpdateBillParams {
+  /** Bill reference to update */
+  reference: string;
+  /** New amount in Rands */
+  amount?: number;
+  /** New description */
+  description?: string;
+  /** Update customer details */
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+}
+
+export interface BillAudit {
+  /** Audit entry ID */
+  auditId: number;
+  /** Timestamp of change */
+  timestamp: string;
+  /** Description of change */
+  description: string;
+  /** User who made the change */
+  user: string;
+  /** Raw audit data */
+  raw: any;
+}
+
+export interface CreateClientParams {
+  /** Client full name */
+  name: string;
+  /** Client surname */
+  surname: string;
+  /** Client email address */
+  email: string;
+  /** Client phone number */
+  phone: string;
+  /** Client ID number (optional) */
+  idNumber?: string;
+}
+
+export interface CreateMobiMandateParams {
+  /** Customer email */
+  customerEmail: string;
+  /** Customer phone number */
+  customerPhone: string;
+  /** Contract code / reference */
+  contractCode?: string;
+  /** Customer surname */
+  surname: string;
+  /** Customer initials */
+  initials?: string;
+  /** Customer ID number */
+  idNumber?: string;
+  /** Product ID */
+  productId?: string;
+  /** Recurring amount in Rands */
+  amount: number;
+  /** Initial amount (defaults to amount) */
+  initialAmount?: number;
+  /** Account name */
+  accountName?: string;
+  /** Account number */
+  accountNumber?: string;
+  /** Branch code */
+  branchCode?: string;
+  /** Account type (1=Savings, 2=Cheque, 3=Credit Card) */
+  accountType?: number;
+  /** Expiry date (YYYY-MM-DD) */
+  expiryDate?: string;
+  /** Commencement date (YYYY-MM-DD) */
+  commencementDate?: string;
+  /** Collection frequency: 'monthly' | 'yearly' */
+  frequency: 'monthly' | 'yearly';
+  /** Collection method type ID (4=NAEDO) */
+  collectionMethodTypeId?: number;
+  /** Debit day (1-28) */
+  debitDay?: number;
+  /** Description */
+  description?: string;
+  /** Maximum collection amount (defaults to amount * 1.5) */
+  maxCollectionAmount?: number;
+  /** Success redirect URL */
+  successUrl?: string;
+  /** Webhook callback URL */
+  callbackUrl?: string;
+}
+
+export interface MobiMandateResult {
+  /** Mandate URL for customer to sign */
+  url: string;
+  /** Success status */
+  success: boolean;
+  /** Message from SoftyComp */
+  message: string;
+}
+
+export interface UpdateCollectionStatusParams {
+  /** Collection ID to update */
+  collectionId: number;
+  /** New status type ID (6=Cancelled) */
+  statusTypeId: number;
+}
+
+export interface CreditDistributionParams {
+  /** Amount in Rands */
+  amount: number;
+  /** Recipient account number */
+  accountNumber: string;
+  /** Recipient branch code */
+  branchCode: string;
+  /** Recipient account name */
+  accountName: string;
+  /** Payment reference */
+  reference: string;
+}
+
+export interface CreditDistributionResult {
+  /** Distribution ID */
+  distributionId: string;
+  /** Success status */
+  success: boolean;
+  /** Messages from SoftyComp */
+  messages: string[];
+}
+
+export interface CreateReauthBillParams {
+  /** Old bill reference to expire */
+  oldReference: string;
+  /** New bill reference (must be different) */
+  newReference: string;
+  /** Amount in Rands */
+  amount: number;
+  /** Customer name */
+  customerName: string;
+  /** Customer email */
+  customerEmail: string;
+  /** Customer phone */
+  customerPhone: string;
+  /** Bill description */
+  description: string;
+  /** Billing cycle */
+  billingCycle: 'MONTHLY' | 'YEARLY';
+  /** Success URL */
+  successUrl: string;
+  /** Cancel URL */
+  cancelUrl: string;
+  /** Webhook URL */
+  notifyUrl: string;
+}
+
 // ==================== Internal Types ====================
 
 interface TokenResponse {
@@ -145,6 +294,26 @@ interface WebhookPayload {
   paymentMethodTypeDescription: string;
   userReference: string;
   information: string;
+  statusTypeID?: number;
+}
+
+interface ClientResponse {
+  value: number;
+  success: boolean;
+  messages: string[];
+}
+
+interface MobiMandateResponse {
+  success: boolean;
+  tinyURL: string;
+  message: string;
+}
+
+interface GenericResponse {
+  value?: any;
+  success: boolean;
+  messages: string[];
+  message?: string;
 }
 
 // ==================== Main SDK Class ====================
@@ -387,6 +556,99 @@ export class SoftyComp {
     };
   }
 
+  // ==================== Bill Management ====================
+
+  /**
+   * Set a bill to expired status
+   *
+   * @example
+   * ```typescript
+   * await client.setBillToExpiredStatus('BILL-REF-123', 'USER-REF-123');
+   * ```
+   */
+  async setBillToExpiredStatus(reference: string, userReference: string): Promise<void> {
+    await this.apiRequest(
+      'POST',
+      `/api/paygatecontroller/setBillToExpiredStatus/${encodeURIComponent(reference)}/${encodeURIComponent(userReference)}`,
+      '', // Empty body required
+    );
+  }
+
+  /**
+   * Update bill presentment details
+   *
+   * @example
+   * ```typescript
+   * await client.updateBillPresentment({
+   *   reference: 'BILL-REF-123',
+   *   amount: 399.00,
+   *   description: 'Updated description'
+   * });
+   * ```
+   */
+  async updateBillPresentment(params: UpdateBillParams): Promise<void> {
+    // First, get the current bill to retrieve full structure
+    const currentBill = await this.apiRequest<any>(
+      'GET',
+      `/api/paygatecontroller/listBillPresentmentDetails/${params.reference}/${params.reference}`,
+    );
+
+    const updateData: any = {
+      Reference: params.reference,
+      UserReference: currentBill.userReference || params.reference,
+      Items: currentBill.items || [],
+    };
+
+    if (params.customerName !== undefined) {
+      updateData.Name = params.customerName;
+    }
+    if (params.customerEmail !== undefined) {
+      updateData.Emailaddress = params.customerEmail;
+    }
+    if (params.customerPhone !== undefined) {
+      updateData.Cellno = params.customerPhone;
+    }
+
+    // Update item fields if amount or description changed
+    if (updateData.Items.length > 0) {
+      if (params.amount !== undefined) {
+        updateData.Items[0].Amount = parseFloat(params.amount.toFixed(2));
+      }
+      if (params.description !== undefined) {
+        updateData.Items[0].Description = params.description;
+      }
+    }
+
+    await this.apiRequest(
+      'POST',
+      '/api/paygatecontroller/updateBillPresentment',
+      updateData,
+    );
+  }
+
+  /**
+   * List bill presentment audit trail
+   *
+   * @example
+   * ```typescript
+   * const audits = await client.listBillPresentmentAudits('BILL-REF-123', 'USER-REF-123');
+   * ```
+   */
+  async listBillPresentmentAudits(reference: string, userReference: string): Promise<BillAudit[]> {
+    const result = await this.apiRequest<any[]>(
+      'GET',
+      `/api/paygatecontroller/listBillPresentmentAudits/${encodeURIComponent(reference)}/${encodeURIComponent(userReference)}`,
+    );
+
+    return (result || []).map((audit: any) => ({
+      auditId: audit.auditId || 0,
+      timestamp: audit.timestamp || audit.date || '',
+      description: audit.description || audit.action || '',
+      user: audit.user || audit.userName || '',
+      raw: audit,
+    }));
+  }
+
   // ==================== Refunds ====================
 
   /**
@@ -524,6 +786,260 @@ export class SoftyComp {
     };
   }
 
+  // ==================== Client Management ====================
+
+  /**
+   * Create a new client
+   *
+   * @example
+   * ```typescript
+   * const clientId = await client.createClient({
+   *   name: 'John',
+   *   surname: 'Doe',
+   *   email: 'john@example.com',
+   *   phone: '0825551234',
+   *   idNumber: '8001015009087'
+   * });
+   * ```
+   */
+  async createClient(params: CreateClientParams): Promise<number> {
+    const result = await this.apiRequest<ClientResponse>(
+      'POST',
+      '/api/clients/createclient',
+      {
+        clientId: 0,
+        clientTypeId: 1, // Individual
+        contractCode: `C${Date.now().toString().slice(-13)}`, // Max 14 chars
+        initials: params.name.charAt(0),
+        surname: params.surname,
+        idnumber: params.idNumber || '',
+        clientStatusTypeId: 1, // Active
+        cellphoneNumber: params.phone,
+        emailAddress: params.email,
+        sendSmsDonotifications: true,
+        sendSmsUnpaidsNotifications: true,
+        isSouthAfricanCitizen: true,
+        fullNames: params.name,
+      },
+    );
+
+    if (!result.success) {
+      throw new Error(`SoftyComp create client failed: ${result.messages.join(', ')}`);
+    }
+    return result.value;
+  }
+
+  // ==================== Mobi-Mandate (Debit Orders) ====================
+
+  /**
+   * Create a Mobi-Mandate request for debit order sign-up
+   *
+   * @example
+   * ```typescript
+   * const mandate = await client.createMobiMandate({
+   *   customerEmail: 'john@example.com',
+   *   customerPhone: '0825551234',
+   *   surname: 'Doe',
+   *   initials: 'J',
+   *   amount: 99.00,
+   *   frequency: 'monthly',
+   *   debitDay: 1,
+   *   description: 'Monthly subscription',
+   *   successUrl: 'https://myapp.com/success'
+   * });
+   *
+   * // Redirect customer to mandate.url to sign
+   * console.log(mandate.url);
+   * ```
+   */
+  async createMobiMandate(params: CreateMobiMandateParams): Promise<MobiMandateResult> {
+    const frequencyMap: Record<string, number> = {
+      monthly: 2,
+      yearly: 4,
+    };
+
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const defaultCommencementDate = tomorrow.toISOString().split('T')[0];
+
+    const mandateData = {
+      EmailAddress: params.customerEmail,
+      CellphoneNumber: params.customerPhone,
+      ContractCode: params.contractCode || `M${Date.now().toString().slice(-5)}`, // Max 6 chars
+      Surname: params.surname,
+      Initials: params.initials || params.surname.charAt(0),
+      IDNumber: params.idNumber || '',
+      ProductID: params.productId ? parseInt(params.productId, 10) : null,
+      Amount: parseFloat(params.amount.toFixed(2)),
+      InitialAmount: params.initialAmount ? parseFloat(params.initialAmount.toFixed(2)) : parseFloat(params.amount.toFixed(2)),
+      AccountName: params.accountName || '',
+      AccountNumber: params.accountNumber || '',
+      BranchCode: params.branchCode || '',
+      AccountType: params.accountType || 1,
+      ExpiryDate: params.expiryDate || null,
+      CommencementDate: params.commencementDate || defaultCommencementDate,
+      CollectionFrequencyTypeID: frequencyMap[params.frequency] || 2,
+      CollectionMethodTypeID: params.collectionMethodTypeId || 4, // NAEDO
+      DebitDay: params.debitDay || 1,
+      Description: params.description || 'Debit Order',
+      DebitMonth: null,
+      TransactionDate1: null,
+      TransactionDate2: null,
+      TransactionDate3: null,
+      TransactionDate4: null,
+      NaedoTrackingCodeID: 12,
+      EntryClassCodeTypeID: 1,
+      AdjustmentCategoryTypeID: 2,
+      DebiCheckMaximumCollectionAmount: params.maxCollectionAmount || (params.amount * 1.5),
+      DateAdjustmentAllowed: false,
+      AdjustmentAmount: 0,
+      AdjustmentRate: 0,
+      DebitValueTypeID: 1,
+      RedirectURL: params.successUrl || '',
+      CallbackURL: params.callbackUrl || '',
+      SendCorrespondence: true,
+      ExternalRequest: true,
+      HideHomeTel: true,
+      HideWorkTel: true,
+      HideProductDetail: false,
+      HideExpiryDate: true,
+      HideAdditionalInfo: true,
+      HideDescription: false,
+    };
+
+    const result = await this.apiRequest<MobiMandateResponse>(
+      'POST',
+      '/api/mobimandate/generateMobiMandateRequest',
+      mandateData,
+    );
+
+    if (!result.success) {
+      throw new Error(`SoftyComp Mobi-Mandate failed: ${result.message}`);
+    }
+
+    return {
+      url: result.tinyURL,
+      success: result.success,
+      message: result.message,
+    };
+  }
+
+  /**
+   * Update collection status (e.g., cancel a debit order)
+   *
+   * @example
+   * ```typescript
+   * await client.updateCollectionStatus({
+   *   collectionId: 12345,
+   *   statusTypeId: 6  // 6 = Cancelled
+   * });
+   * ```
+   */
+  async updateCollectionStatus(params: UpdateCollectionStatusParams): Promise<void> {
+    await this.apiRequest(
+      'POST',
+      '/api/collections/updateCollectionStatus',
+      {
+        collectionID: params.collectionId,
+        collectionStatusTypeID: params.statusTypeId,
+      },
+    );
+  }
+
+  // ==================== Credit Distribution (Payouts) ====================
+
+  /**
+   * Create a credit distribution (payout to bank account)
+   *
+   * @example
+   * ```typescript
+   * const result = await client.createCreditDistribution({
+   *   amount: 500.00,
+   *   accountNumber: '1234567890',
+   *   branchCode: '123456',
+   *   accountName: 'John Doe',
+   *   reference: 'PAYOUT-001'
+   * });
+   * ```
+   */
+  async createCreditDistribution(params: CreditDistributionParams): Promise<CreditDistributionResult> {
+    const result = await this.apiRequest<GenericResponse>(
+      'POST',
+      '/api/creditdistribution/createCreditDistribution',
+      {
+        creditFileTransactions: [
+          {
+            amount: parseFloat(params.amount.toFixed(2)),
+            accountNumber: params.accountNumber,
+            branchCode: params.branchCode,
+            accountName: params.accountName,
+            reference: params.reference,
+          },
+        ],
+      },
+    );
+
+    return {
+      distributionId: result?.value?.toString() || `dist_${Date.now()}`,
+      success: result?.success || false,
+      messages: result?.messages || [],
+    };
+  }
+
+  // ==================== Re-authentication ====================
+
+  /**
+   * Handle card expiry / re-auth: expire old bill and create new one
+   *
+   * @example
+   * ```typescript
+   * const newBill = await client.createReauthBill({
+   *   oldReference: 'OLD-BILL-123',
+   *   newReference: 'NEW-BILL-456',
+   *   amount: 99.00,
+   *   customerName: 'John Doe',
+   *   customerEmail: 'john@example.com',
+   *   customerPhone: '0825551234',
+   *   description: 'Monthly subscription',
+   *   billingCycle: 'MONTHLY',
+   *   successUrl: 'https://myapp.com/success',
+   *   cancelUrl: 'https://myapp.com/cancel',
+   *   notifyUrl: 'https://myapp.com/webhook'
+   * });
+   * ```
+   */
+  async createReauthBill(params: CreateReauthBillParams): Promise<CreateBillResult> {
+    // Step 1: Expire the old bill
+    try {
+      await this.setBillToExpiredStatus(params.oldReference, params.oldReference);
+    } catch (err) {
+      console.warn(`[SoftyComp] Could not expire old bill ${params.oldReference}:`, err);
+      // Continue — the old bill may already be expired
+    }
+
+    // Step 2: Create a new bill with a different reference
+    const isMonthly = params.billingCycle === 'MONTHLY';
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    return this.createBill({
+      amount: params.amount,
+      customerName: params.customerName,
+      customerEmail: params.customerEmail,
+      customerPhone: params.customerPhone,
+      reference: params.newReference,
+      description: params.description,
+      frequency: isMonthly ? 'monthly' : 'yearly',
+      commencementDate: tomorrow.toISOString().split('T')[0],
+      recurringDay: tomorrow.getDate(),
+      recurringMonth: isMonthly ? undefined : (tomorrow.getMonth() + 1),
+      returnUrl: params.successUrl,
+      cancelUrl: params.cancelUrl,
+      notifyUrl: params.notifyUrl,
+    });
+  }
+
   // ==================== Helpers ====================
 
   /**
@@ -537,6 +1053,8 @@ export class SoftyComp {
       case 3: return 'failed';    // Failed
       case 4: return 'cancelled'; // Expired
       case 5: return 'cancelled'; // Cancelled
+      case 6: return 'failed';    // Arrears (card expired / payment failed)
+      case 7: return 'failed';    // ReAuth required
       default: return 'pending';
     }
   }

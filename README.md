@@ -10,9 +10,13 @@ Accept once-off and recurring payments via card, EFT, and debit order with a sim
 
 ## Features
 
-- **Bill Presentment** — Create payment links for once-off or recurring bills
-- **Debit Orders** — Monthly and yearly recurring collections
+- **Bill Presentment** — Create, update, expire payment links for once-off or recurring bills
+- **Debit Orders** — Monthly and yearly recurring collections via Mobi-Mandate
+- **Client Management** — Create and manage customer profiles
 - **Refunds** — Process full or partial refunds via credit transactions
+- **Payouts** — Credit distribution to bank accounts
+- **Re-authentication** — Handle card expiry with automated bill re-creation
+- **Audit Trail** — List bill presentment audit logs
 - **Webhooks** — Real-time payment notifications with signature validation
 - **TypeScript** — Fully typed for autocomplete and type safety
 - **Zero Dependencies** — Uses native `fetch()` (Node.js 18+)
@@ -185,6 +189,100 @@ const status = await client.getBillStatus('BILL-REF-123');
 }
 ```
 
+### Bill Management
+
+#### Expire a Bill
+
+Set a bill to expired status (e.g., for cancelling a recurring bill):
+
+```typescript
+await client.setBillToExpiredStatus('BILL-REF-123', 'USER-REF-123');
+```
+
+#### Update Bill Presentment
+
+Update details of an existing bill:
+
+```typescript
+await client.updateBillPresentment({
+  reference: 'BILL-REF-123',
+  amount: 399.00,
+  description: 'Updated description',
+  customerEmail: 'newemail@example.com'
+});
+```
+
+#### List Bill Audit Trail
+
+Get the audit trail for a bill:
+
+```typescript
+const audits = await client.listBillPresentmentAudits('BILL-REF-123', 'USER-REF-123');
+
+// Returns array of:
+{
+  auditId: number;
+  timestamp: string;
+  description: string;
+  user: string;
+  raw: any;
+}
+```
+
+### Client Management
+
+Create a new client profile:
+
+```typescript
+const clientId = await client.createClient({
+  name: 'John',
+  surname: 'Doe',
+  email: 'john@example.com',
+  phone: '0825551234',
+  idNumber: '8001015009087'  // Optional SA ID number
+});
+
+console.log(`Created client ID: ${clientId}`);
+```
+
+### Mobi-Mandate (Debit Orders)
+
+Create a Mobi-Mandate request for debit order sign-up. This generates a URL where customers can enter their bank details and sign a debit order mandate.
+
+```typescript
+const mandate = await client.createMobiMandate({
+  customerEmail: 'john@example.com',
+  customerPhone: '0825551234',
+  surname: 'Doe',
+  initials: 'J',
+  amount: 99.00,              // Monthly/yearly charge amount
+  frequency: 'monthly',       // or 'yearly'
+  debitDay: 1,                // Day of month to charge (1-28)
+  description: 'Monthly subscription',
+  successUrl: 'https://myapp.com/success',
+  callbackUrl: 'https://myapp.com/webhook'
+});
+
+// Redirect customer to sign the mandate
+console.log(mandate.url);  // e.g., https://popay.co.za/xxx
+
+// Returns:
+{
+  url: string;      // Mandate sign-up URL
+  success: boolean;
+  message: string;
+}
+```
+
+#### Cancel a Debit Order Collection
+
+```typescript
+await client.updateCollectionStatus({
+  collectionId: 12345,
+  statusTypeId: 6  // 6 = Cancelled
+});
+```
+
 ### Refund Payment
 
 Process a full or partial refund (credit transaction).
@@ -207,6 +305,50 @@ const refund = await client.refund({
   status: 'completed' | 'pending' | 'failed';
   amount: number;          // Amount refunded in Rands
 }
+```
+
+### Credit Distribution (Payouts)
+
+Send money to a bank account:
+
+```typescript
+const result = await client.createCreditDistribution({
+  amount: 500.00,
+  accountNumber: '1234567890',
+  branchCode: '123456',
+  accountName: 'John Doe',
+  reference: 'PAYOUT-001'
+});
+
+// Returns:
+{
+  distributionId: string;
+  success: boolean;
+  messages: string[];
+}
+```
+
+### Re-authentication (Card Expiry)
+
+Handle card expiry by expiring the old bill and creating a new one with a different reference:
+
+```typescript
+const newBill = await client.createReauthBill({
+  oldReference: 'OLD-BILL-123',
+  newReference: 'NEW-BILL-456',  // MUST be different
+  amount: 99.00,
+  customerName: 'John Doe',
+  customerEmail: 'john@example.com',
+  customerPhone: '0825551234',
+  description: 'Monthly subscription',
+  billingCycle: 'MONTHLY',  // or 'YEARLY'
+  successUrl: 'https://myapp.com/success',
+  cancelUrl: 'https://myapp.com/cancel',
+  notifyUrl: 'https://myapp.com/webhook'
+});
+
+// Customer re-enters card details at newBill.paymentUrl
+console.log(newBill.paymentUrl);
 ```
 
 ### Webhook Handling
@@ -366,7 +508,16 @@ import {
   PaymentStatus,
   WebhookEvent,
   CreateBillParams,
-  RefundParams
+  RefundParams,
+  CreateClientParams,
+  CreateMobiMandateParams,
+  MobiMandateResult,
+  UpdateBillParams,
+  BillAudit,
+  CreditDistributionParams,
+  CreditDistributionResult,
+  CreateReauthBillParams,
+  UpdateCollectionStatusParams
 } from 'softycomp-node';
 ```
 
