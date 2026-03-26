@@ -75,6 +75,9 @@
             <code>npm install softycomp-node</code>
             <button class="copy-btn" onclick="copyToClipboard('npm install softycomp-node')">Copy</button>
           </div>
+          <p style="margin-top: 1rem; font-size: 0.875rem; color: var(--text-muted);">
+            💡 Pro tip: Use number keys (1-8) to quickly switch between tabs
+          </p>
         </div>
 
         <div class="features-grid">
@@ -231,7 +234,7 @@
     <div class="tab-content" id="bills">
       <div class="section">
         <h2>Bill Management</h2>
-        <p class="subtitle">Get status, update, expire bills, and view audit trail</p>
+        <p class="subtitle">Get status, update, expire bills, and view audit trail. All operations are tracked and auditable.</p>
 
         <div class="form-grid">
           <div class="form-section">
@@ -353,7 +356,7 @@
     <div class="tab-content" id="debit">
       <div class="section">
         <h2>Debit Orders (Mobi-Mandate)</h2>
-        <p class="subtitle">Create debit order mandates and manage collection status</p>
+        <p class="subtitle">Create debit order mandates and manage collection status. Customer signs mandate via secure mobile flow.</p>
 
         <div class="form-grid">
           <div class="form-section full-width">
@@ -536,13 +539,25 @@
           <div class="info-card">
             <strong>Webhook URL:</strong>
             <code>http://localhost:4021/webhook</code>
+            <p style="margin-top: 0.5rem; font-size: 0.8125rem; color: var(--text-muted);">
+              Configure this URL in your SoftyComp dashboard
+            </p>
+          </div>
+          <div class="info-card">
+            <strong>Live Feed Status:</strong>
+            <span id="sseStatus" class="badge badge-pending">Connecting...</span>
+            <p style="margin-top: 0.5rem; font-size: 0.8125rem; color: var(--text-muted);">
+              Real-time events via Server-Sent Events
+            </p>
           </div>
           <div class="info-card">
             <strong>Event Types:</strong>
-            <span class="badge badge-pending">Pending</span>
-            <span class="badge badge-success">Successful</span>
-            <span class="badge badge-failed">Failed</span>
-            <span class="badge badge-cancelled">Cancelled</span>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
+              <span class="badge badge-pending">Pending</span>
+              <span class="badge badge-success">Successful</span>
+              <span class="badge badge-failed">Failed</span>
+              <span class="badge badge-cancelled">Cancelled</span>
+            </div>
           </div>
         </div>
 

@@ -10,14 +10,23 @@ const { SoftyComp } = require('../dist/index.js');
 const app = express();
 const PORT = 4021;
 
+// Security headers (must be first)
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  next();
+});
+
 // Middleware
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // SoftyComp sandbox client
+// Credentials default to sandbox test keys for demo purposes
 const client = new SoftyComp({
-  apiKey: '97E932D2-EC27-4583-B8E4-EDC87C8019BA',
-  secretKey: 'OEPQKMxopavCtvmvwE3Y',
+  apiKey: process.env.SOFTYCOMP_API_KEY || '97E932D2-EC27-4583-B8E4-EDC87C8019BA',
+  secretKey: process.env.SOFTYCOMP_SECRET_KEY || 'OEPQKMxopavCtvmvwE3Y',
   sandbox: true,
 });
 

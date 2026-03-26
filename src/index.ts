@@ -359,53 +359,114 @@ export class SoftyComp {
       return this.token;
     }
 
-    const response = await fetch(`${this.baseUrl}/api/auth/generatetoken`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        apiKey: this.apiKey,
-        apiSecret: this.secretKey,
-      }),
-    });
+    // Add 30-second timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`SoftyComp authentication failed: ${response.status} - ${errorText}`);
+    try {
+      const response = await fetch(`${this.baseUrl}/api/auth/generatetoken`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiKey: this.apiKey,
+          apiSecret: this.secretKey,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`SoftyComp authentication failed: ${response.status} - ${errorText}`);
+      }
+
+      const data = (await response.json()) as TokenResponse;
+      this.token = data.token;
+      this.tokenExpiry = new Date(data.expiration).getTime();
+      return this.token;
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        throw new Error('SoftyComp authentication timeout (30s)');
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
     }
-
-    const data = (await response.json()) as TokenResponse;
-    this.token = data.token;
-    this.tokenExpiry = new Date(data.expiration).getTime();
-    return this.token;
   }
 
   /**
-   * Make authenticated API request
+   * Make authenticated API request with retry logic
    * @internal
    */
   private async apiRequest<T = any>(method: string, path: string, data?: any): Promise<T> {
-    const token = await this.authenticate();
-    const url = `${this.baseUrl}${path}`;
+    return this.fetchWithRetry(async () => {
+      const token = await this.authenticate();
+      const url = `${this.baseUrl}${path}`;
 
-    const response = await fetch(url, {
-      method,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: data ? JSON.stringify(data) : undefined,
+      // Add 30-second timeout
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30_000);
+
+      try {
+        const response = await fetch(url, {
+          method,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: data ? JSON.stringify(data) : undefined,
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          const error: any = new Error(`SoftyComp API error (${method} ${path}): ${response.status} - ${errorText}`);
+          error.status = response.status;
+          throw error;
+        }
+
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          return (await response.json()) as T;
+        }
+        return (await response.text()) as unknown as T;
+      } catch (error: any) {
+        if (error.name === 'AbortError') {
+          throw new Error(`SoftyComp API timeout (${method} ${path}): 30s exceeded`);
+        }
+        throw error;
+      } finally {
+        clearTimeout(timeout);
+      }
     });
+  }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`SoftyComp API error (${method} ${path}): ${response.status} - ${errorText}`);
-    }
+  /**
+   * Retry logic for API requests (5xx errors and network failures)
+   * @internal
+   */
+  private async fetchWithRetry<T>(fn: () => Promise<T>, attempt = 1): Promise<T> {
+    const maxAttempts = 3;
+    const delays = [1000, 2000, 4000]; // Exponential backoff: 1s, 2s, 4s
 
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      return (await response.json()) as T;
+    try {
+      return await fn();
+    } catch (error: any) {
+      const isRetryable =
+        error.status >= 500 ||
+        error.code === 'ECONNRESET' ||
+        error.code === 'ETIMEDOUT' ||
+        error.code === 'ENOTFOUND' ||
+        error.name === 'FetchError';
+
+      if (isRetryable && attempt < maxAttempts) {
+        const delay = delays[attempt - 1];
+        console.warn(`[SoftyComp] Retry ${attempt}/${maxAttempts} after ${delay}ms:`, error.message);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return this.fetchWithRetry(fn, attempt + 1);
+      }
+
+      throw error;
     }
-    return (await response.text()) as unknown as T;
   }
 
   // ==================== Bill Presentment ====================
@@ -435,6 +496,13 @@ export class SoftyComp {
    * ```
    */
   async createBill(params: CreateBillParams): Promise<CreateBillResult> {
+    // Validate inputs
+    this.validateAmount(params.amount, 'amount');
+    this.validateEmail(params.customerEmail, 'customerEmail');
+    if (params.commencementDate) {
+      this.validateDate(params.commencementDate, 'commencementDate');
+    }
+
     const isRecurring = params.frequency !== 'once-off';
 
     // Frequency type mapping from SoftyComp docs:
@@ -447,7 +515,7 @@ export class SoftyComp {
     // Build the bill item
     const item: Record<string, any> = {
       Description: params.description || 'Payment',
-      Amount: parseFloat(params.amount.toFixed(2)),
+      Amount: Math.round(params.amount * 100) / 100,
       FrequencyTypeID: frequencyTypeID,
       DisplayCompanyName: params.companyName || 'Your Company',
       DisplayCompanyContactNo: params.companyContact || '',
@@ -587,6 +655,11 @@ export class SoftyComp {
    * ```
    */
   async updateBillPresentment(params: UpdateBillParams): Promise<void> {
+    // Validate amount if provided
+    if (params.amount !== undefined) {
+      this.validateAmount(params.amount, 'amount');
+    }
+
     // First, get the current bill to retrieve full structure
     const currentBill = await this.apiRequest<any>(
       'GET',
@@ -612,7 +685,7 @@ export class SoftyComp {
     // Update item fields if amount or description changed
     if (updateData.Items.length > 0) {
       if (params.amount !== undefined) {
-        updateData.Items[0].Amount = parseFloat(params.amount.toFixed(2));
+        updateData.Items[0].Amount = Math.round(params.amount * 100) / 100;
       }
       if (params.description !== undefined) {
         updateData.Items[0].Description = params.description;
@@ -667,6 +740,11 @@ export class SoftyComp {
    * ```
    */
   async refund(params: RefundParams): Promise<RefundResult> {
+    // Validate amount if provided
+    if (params.amount !== undefined) {
+      this.validateAmount(params.amount, 'refund amount');
+    }
+
     const refundData: any = {
       Reference: params.transactionId,
       UserReference: params.transactionId,
@@ -674,7 +752,7 @@ export class SoftyComp {
 
     if (params.amount !== undefined) {
       // IMPORTANT: SoftyComp uses capital "A" in Amount field for refunds
-      refundData.Amount = parseFloat(params.amount.toFixed(2));
+      refundData.Amount = Math.round(params.amount * 100) / 100;
     }
 
     const result = await this.apiRequest<any>(
@@ -712,9 +790,18 @@ export class SoftyComp {
   ): boolean {
     const signature = 'signature' in headers ? headers.signature : (headers as Record<string, string>)['x-signature'];
 
-    if (!signature || !this.webhookSecret) {
-      // No signature validation configured
-      return true;
+    if (!this.webhookSecret) {
+      // No webhook secret configured
+      if (this.sandbox) {
+        console.warn('[SoftyComp] WARNING: Webhook signature verification disabled in sandbox mode. Configure webhookSecret for production.');
+        return true;
+      } else {
+        throw new Error('Webhook secret is required in production mode. Configure webhookSecret in SoftyCompConfig.');
+      }
+    }
+
+    if (!signature) {
+      return false;
     }
 
     const expectedSignature = crypto
@@ -722,7 +809,16 @@ export class SoftyComp {
       .update(body)
       .digest('hex');
 
-    return signature === expectedSignature || signature === `sha256=${expectedSignature}`;
+    // Timing-safe comparison to prevent timing attacks
+    const expectedBuffer = Buffer.from(expectedSignature);
+    const signatureBuffer = Buffer.from(signature.replace(/^sha256=/, ''));
+
+    // Ensure buffers are same length before comparing
+    if (expectedBuffer.length !== signatureBuffer.length) {
+      return false;
+    }
+
+    return crypto.timingSafeEqual(expectedBuffer, signatureBuffer);
   }
 
   /**
@@ -853,6 +949,15 @@ export class SoftyComp {
    * ```
    */
   async createMobiMandate(params: CreateMobiMandateParams): Promise<MobiMandateResult> {
+    // Validate amounts
+    this.validateAmount(params.amount, 'amount');
+    if (params.initialAmount !== undefined) {
+      this.validateAmount(params.initialAmount, 'initialAmount');
+    }
+    if (params.maxCollectionAmount !== undefined) {
+      this.validateAmount(params.maxCollectionAmount, 'maxCollectionAmount');
+    }
+
     const frequencyMap: Record<string, number> = {
       monthly: 2,
       yearly: 4,
@@ -871,8 +976,8 @@ export class SoftyComp {
       Initials: params.initials || params.surname.charAt(0),
       IDNumber: params.idNumber || '',
       ProductID: params.productId ? parseInt(params.productId, 10) : null,
-      Amount: parseFloat(params.amount.toFixed(2)),
-      InitialAmount: params.initialAmount ? parseFloat(params.initialAmount.toFixed(2)) : parseFloat(params.amount.toFixed(2)),
+      Amount: Math.round(params.amount * 100) / 100,
+      InitialAmount: params.initialAmount ? Math.round(params.initialAmount * 100) / 100 : Math.round(params.amount * 100) / 100,
       AccountName: params.accountName || '',
       AccountNumber: params.accountNumber || '',
       BranchCode: params.branchCode || '',
@@ -891,7 +996,7 @@ export class SoftyComp {
       NaedoTrackingCodeID: 12,
       EntryClassCodeTypeID: 1,
       AdjustmentCategoryTypeID: 2,
-      DebiCheckMaximumCollectionAmount: params.maxCollectionAmount || (params.amount * 1.5),
+      DebiCheckMaximumCollectionAmount: params.maxCollectionAmount ? Math.round(params.maxCollectionAmount * 100) / 100 : Math.round((params.amount * 1.5) * 100) / 100,
       DateAdjustmentAllowed: false,
       AdjustmentAmount: 0,
       AdjustmentRate: 0,
@@ -964,13 +1069,16 @@ export class SoftyComp {
    * ```
    */
   async createCreditDistribution(params: CreditDistributionParams): Promise<CreditDistributionResult> {
+    // Validate amount
+    this.validateAmount(params.amount, 'amount');
+
     const result = await this.apiRequest<GenericResponse>(
       'POST',
       '/api/creditdistribution/createCreditDistribution',
       {
         creditFileTransactions: [
           {
-            amount: parseFloat(params.amount.toFixed(2)),
+            amount: Math.round(params.amount * 100) / 100,
             accountNumber: params.accountNumber,
             branchCode: params.branchCode,
             accountName: params.accountName,
@@ -1057,6 +1165,53 @@ export class SoftyComp {
       case 6: return 'failed';    // Arrears (card expired / payment failed)
       case 7: return 'failed';    // ReAuth required
       default: return 'pending';
+    }
+  }
+
+  // ==================== Validation Helpers ====================
+
+  /**
+   * Validate amount (reject negative, NaN, Infinity, enforce max 10M)
+   * @internal
+   */
+  private validateAmount(amount: number, fieldName = 'amount'): void {
+    if (typeof amount !== 'number' || isNaN(amount)) {
+      throw new Error(`Invalid ${fieldName}: must be a number`);
+    }
+    if (!isFinite(amount)) {
+      throw new Error(`Invalid ${fieldName}: cannot be Infinity`);
+    }
+    if (amount < 0) {
+      throw new Error(`Invalid ${fieldName}: cannot be negative`);
+    }
+    if (amount > 10_000_000) {
+      throw new Error(`Invalid ${fieldName}: cannot exceed R10,000,000`);
+    }
+  }
+
+  /**
+   * Validate date format (YYYY-MM-DD)
+   * @internal
+   */
+  private validateDate(date: string, fieldName = 'date'): void {
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(date)) {
+      throw new Error(`Invalid ${fieldName}: must be in YYYY-MM-DD format`);
+    }
+    const parsedDate = new Date(date);
+    if (isNaN(parsedDate.getTime())) {
+      throw new Error(`Invalid ${fieldName}: not a valid date`);
+    }
+  }
+
+  /**
+   * Validate email address (basic RFC validation)
+   * @internal
+   */
+  private validateEmail(email: string, fieldName = 'email'): void {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      throw new Error(`Invalid ${fieldName}: must be a valid email address`);
     }
   }
 }

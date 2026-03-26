@@ -1,6 +1,14 @@
 // Global state
 let webhookCount = 0;
 
+// HTML escaping helper to prevent XSS
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  const div = document.createElement('div');
+  div.textContent = String(str);
+  return div.innerHTML;
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
   initializeTabs();
@@ -10,7 +18,36 @@ document.addEventListener('DOMContentLoaded', () => {
   loadWebhookHistory();
   setupFrequencyChangeHandler();
   setDefaultCommencementDate();
+  setupKeyboardShortcuts();
 });
+
+// Keyboard shortcuts
+function setupKeyboardShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    // Ctrl/Cmd + K to focus search (if we add one later)
+    // ESC to close modals (if we add them)
+
+    // Number keys 1-8 to switch tabs (when not focused on input)
+    if (!['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {
+      const tabMap = {
+        '1': 'dashboard',
+        '2': 'cards',
+        '3': 'bills',
+        '4': 'debit',
+        '5': 'clients',
+        '6': 'webhooks',
+        '7': 'code',
+        '8': 'reference'
+      };
+
+      if (tabMap[e.key]) {
+        e.preventDefault();
+        const tab = document.querySelector(`[data-tab="${tabMap[e.key]}"]`);
+        if (tab) tab.click();
+      }
+    }
+  });
+}
 
 // Tab Navigation
 function initializeTabs() {
@@ -27,6 +64,9 @@ function initializeTabs() {
       tab.classList.add('active');
       const tabId = tab.dataset.tab;
       document.getElementById(tabId).classList.add('active');
+
+      // Scroll to top smoothly
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   });
 }
@@ -106,7 +146,13 @@ function initializeForms() {
     const formData = new FormData(e.target);
     const reference = formData.get('reference');
 
+    const btn = e.target.querySelector('button[type="submit"]');
+    const originalText = btn.textContent;
+
     try {
+      btn.disabled = true;
+      btn.textContent = 'Loading...';
+
       const response = await fetch(`/api/bill/${encodeURIComponent(reference)}`);
       const result = await response.json();
 
@@ -115,12 +161,12 @@ function initializeForms() {
           <div class="result-card">
             <div class="result-item">
               <strong>Reference:</strong>
-              <span>${result.data.reference}</span>
+              <span>${escapeHtml(result.data.reference)}</span>
             </div>
             <div class="result-item">
               <strong>Status:</strong>
-              <span class="badge badge-${result.data.status === 'completed' ? 'success' : result.data.status === 'pending' ? 'pending' : 'failed'}">
-                ${result.data.status}
+              <span class="badge badge-${escapeHtml(result.data.status) === 'completed' ? 'success' : escapeHtml(result.data.status) === 'pending' ? 'pending' : 'failed'}">
+                ${escapeHtml(result.data.status)}
               </span>
             </div>
             <div class="result-item">
@@ -130,7 +176,7 @@ function initializeForms() {
             ${result.data.paidAt ? `
               <div class="result-item">
                 <strong>Paid At:</strong>
-                <span>${new Date(result.data.paidAt).toLocaleString()}</span>
+                <span>${escapeHtml(new Date(result.data.paidAt).toLocaleString())}</span>
               </div>
             ` : ''}
           </div>
@@ -143,6 +189,9 @@ function initializeForms() {
       }
     } catch (error) {
       showToast('Error: ' + error.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
     }
   });
 
@@ -152,7 +201,13 @@ function initializeForms() {
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
 
+    const btn = e.target.querySelector('button[type="submit"]');
+    const originalText = btn.textContent;
+
     try {
+      btn.disabled = true;
+      btn.textContent = 'Updating...';
+
       const response = await fetch('/api/bill/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -169,6 +224,9 @@ function initializeForms() {
       }
     } catch (error) {
       showToast('Error: ' + error.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
     }
   });
 
@@ -178,7 +236,13 @@ function initializeForms() {
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
 
+    const btn = e.target.querySelector('button[type="submit"]');
+    const originalText = btn.textContent;
+
     try {
+      btn.disabled = true;
+      btn.textContent = 'Expiring...';
+
       const response = await fetch('/api/bill/expire', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -195,6 +259,9 @@ function initializeForms() {
       }
     } catch (error) {
       showToast('Error: ' + error.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
     }
   });
 
@@ -205,7 +272,13 @@ function initializeForms() {
     const reference = formData.get('reference');
     const userRef = formData.get('userRef') || reference;
 
+    const btn = e.target.querySelector('button[type="submit"]');
+    const originalText = btn.textContent;
+
     try {
+      btn.disabled = true;
+      btn.textContent = 'Loading...';
+
       const response = await fetch(`/api/bill/${encodeURIComponent(reference)}/audits?userRef=${encodeURIComponent(userRef)}`);
       const result = await response.json();
 
@@ -215,8 +288,8 @@ function initializeForms() {
         } else {
           const auditHtml = result.data.map(audit => `
             <div class="result-item">
-              <strong>${audit.timestamp}</strong>
-              <span>${audit.description} (by ${audit.user})</span>
+              <strong>${escapeHtml(audit.timestamp)}</strong>
+              <span>${escapeHtml(audit.description)} (by ${escapeHtml(audit.user)})</span>
             </div>
           `).join('');
           document.getElementById('auditResult').innerHTML = `<div class="result-card">${auditHtml}</div>`;
@@ -228,6 +301,9 @@ function initializeForms() {
       }
     } catch (error) {
       showToast('Error: ' + error.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
     }
   });
 
@@ -252,11 +328,11 @@ function initializeForms() {
           <div class="result-card">
             <div class="result-item">
               <strong>New Reference:</strong>
-              <span>${result.data.reference}</span>
+              <span>${escapeHtml(result.data.reference)}</span>
             </div>
             <div class="result-item">
               <strong>Payment URL:</strong>
-              <a href="${result.data.paymentUrl}" target="_blank" class="payment-link">${result.data.paymentUrl}</a>
+              <a href="${escapeHtml(result.data.paymentUrl)}" target="_blank" class="payment-link">${escapeHtml(result.data.paymentUrl)}</a>
             </div>
           </div>
         `;
@@ -278,7 +354,13 @@ function initializeForms() {
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
 
+    const btn = e.target.querySelector('button[type="submit"]');
+    const originalText = btn.textContent;
+
     try {
+      btn.disabled = true;
+      btn.textContent = 'Creating...';
+
       const response = await fetch('/api/client', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -292,7 +374,7 @@ function initializeForms() {
           <div class="result-card">
             <div class="result-item">
               <strong>Client ID:</strong>
-              <span>${result.data.clientId}</span>
+              <span>${escapeHtml(result.data.clientId)}</span>
             </div>
           </div>
         `;
@@ -305,6 +387,9 @@ function initializeForms() {
       }
     } catch (error) {
       showToast('Error: ' + error.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
     }
   });
 
@@ -333,11 +418,11 @@ function initializeForms() {
           <div class="result-card">
             <div class="result-item">
               <strong>Mandate URL:</strong>
-              <a href="${result.data.url}" target="_blank" class="payment-link">${result.data.url}</a>
+              <a href="${escapeHtml(result.data.url)}" target="_blank" class="payment-link">${escapeHtml(result.data.url)}</a>
             </div>
             <div class="result-item">
               <strong>Message:</strong>
-              <span>${result.data.message}</span>
+              <span>${escapeHtml(result.data.message)}</span>
             </div>
           </div>
         `;
@@ -363,7 +448,13 @@ function initializeForms() {
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
 
+    const btn = e.target.querySelector('button[type="submit"]');
+    const originalText = btn.textContent;
+
     try {
+      btn.disabled = true;
+      btn.textContent = 'Updating...';
+
       const response = await fetch('/api/collection/status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -380,6 +471,9 @@ function initializeForms() {
       }
     } catch (error) {
       showToast('Error: ' + error.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
     }
   });
 
@@ -389,7 +483,13 @@ function initializeForms() {
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
 
+    const btn = e.target.querySelector('button[type="submit"]');
+    const originalText = btn.textContent;
+
     try {
+      btn.disabled = true;
+      btn.textContent = 'Processing...';
+
       const response = await fetch('/api/payout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -403,7 +503,7 @@ function initializeForms() {
           <div class="result-card">
             <div class="result-item">
               <strong>Distribution ID:</strong>
-              <span>${result.data.distributionId}</span>
+              <span>${escapeHtml(result.data.distributionId)}</span>
             </div>
             <div class="result-item">
               <strong>Status:</strong>
@@ -420,6 +520,9 @@ function initializeForms() {
       }
     } catch (error) {
       showToast('Error: ' + error.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
     }
   });
 
@@ -429,7 +532,13 @@ function initializeForms() {
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
 
+    const btn = e.target.querySelector('button[type="submit"]');
+    const originalText = btn.textContent;
+
     try {
+      btn.disabled = true;
+      btn.textContent = 'Processing...';
+
       const response = await fetch('/api/refund', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -443,11 +552,11 @@ function initializeForms() {
           <div class="result-card">
             <div class="result-item">
               <strong>Refund ID:</strong>
-              <span>${result.data.refundId}</span>
+              <span>${escapeHtml(result.data.refundId)}</span>
             </div>
             <div class="result-item">
               <strong>Status:</strong>
-              <span class="badge badge-${result.data.status === 'completed' ? 'success' : 'pending'}">${result.data.status}</span>
+              <span class="badge badge-${escapeHtml(result.data.status) === 'completed' ? 'success' : 'pending'}">${escapeHtml(result.data.status)}</span>
             </div>
             ${result.data.amount ? `
               <div class="result-item">
@@ -466,6 +575,9 @@ function initializeForms() {
       }
     } catch (error) {
       showToast('Error: ' + error.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
     }
   });
 }
@@ -473,11 +585,26 @@ function initializeForms() {
 // Webhook Feed (SSE)
 function initializeWebhookFeed() {
   const eventSource = new EventSource('/events');
+  const statusIndicator = document.getElementById('sseStatus');
+
+  eventSource.onopen = () => {
+    if (statusIndicator) {
+      statusIndicator.textContent = 'Connected';
+      statusIndicator.className = 'badge badge-success';
+    }
+  };
 
   eventSource.onmessage = (event) => {
     const webhook = JSON.parse(event.data);
     webhookCount++;
-    document.getElementById('webhookCount').textContent = webhookCount;
+    const countEl = document.getElementById('webhookCount');
+    countEl.textContent = webhookCount;
+
+    // Animate counter
+    countEl.style.animation = 'none';
+    setTimeout(() => {
+      countEl.style.animation = 'counterPulse 0.5s ease-out';
+    }, 10);
 
     // Add to live feed
     addWebhookToFeed(webhook);
@@ -488,6 +615,10 @@ function initializeWebhookFeed() {
 
   eventSource.onerror = () => {
     console.error('SSE connection error');
+    if (statusIndicator) {
+      statusIndicator.textContent = 'Disconnected';
+      statusIndicator.className = 'badge badge-failed';
+    }
   };
 }
 
@@ -501,17 +632,18 @@ function addWebhookToFeed(webhook) {
   // Create webhook item
   const item = document.createElement('div');
   item.className = 'webhook-item';
+  const eventType = escapeHtml(webhook.event.type);
   item.innerHTML = `
     <div class="webhook-header">
-      <span class="badge badge-${webhook.event.type === 'successful' ? 'success' : webhook.event.type === 'pending' ? 'pending' : webhook.event.type === 'failed' ? 'failed' : 'cancelled'}">
-        ${webhook.event.type}
+      <span class="badge badge-${eventType === 'successful' ? 'success' : eventType === 'pending' ? 'pending' : eventType === 'failed' ? 'failed' : 'cancelled'}">
+        ${eventType}
       </span>
-      <span class="webhook-time">${new Date(webhook.timestamp).toLocaleTimeString()}</span>
+      <span class="webhook-time">${escapeHtml(new Date(webhook.timestamp).toLocaleTimeString())}</span>
     </div>
     <div class="webhook-body">
-      <strong>Reference:</strong> ${webhook.event.reference}<br>
+      <strong>Reference:</strong> ${escapeHtml(webhook.event.reference)}<br>
       <strong>Amount:</strong> R${webhook.event.amount.toFixed(2)}<br>
-      <strong>Method:</strong> ${webhook.event.paymentMethod}
+      <strong>Method:</strong> ${escapeHtml(webhook.event.paymentMethod)}
     </div>
   `;
 
@@ -537,17 +669,18 @@ async function loadWebhookHistory() {
       result.data.forEach(webhook => {
         const item = document.createElement('div');
         item.className = 'webhook-item';
+        const eventType = escapeHtml(webhook.event.type);
         item.innerHTML = `
           <div class="webhook-header">
-            <span class="badge badge-${webhook.event.type === 'successful' ? 'success' : webhook.event.type === 'pending' ? 'pending' : webhook.event.type === 'failed' ? 'failed' : 'cancelled'}">
-              ${webhook.event.type}
+            <span class="badge badge-${eventType === 'successful' ? 'success' : eventType === 'pending' ? 'pending' : eventType === 'failed' ? 'failed' : 'cancelled'}">
+              ${eventType}
             </span>
-            <span class="webhook-time">${new Date(webhook.timestamp).toLocaleString()}</span>
+            <span class="webhook-time">${escapeHtml(new Date(webhook.timestamp).toLocaleString())}</span>
           </div>
           <div class="webhook-body">
-            <strong>Reference:</strong> ${webhook.event.reference}<br>
+            <strong>Reference:</strong> ${escapeHtml(webhook.event.reference)}<br>
             <strong>Amount:</strong> R${webhook.event.amount.toFixed(2)}<br>
-            <strong>Method:</strong> ${webhook.event.paymentMethod}
+            <strong>Method:</strong> ${escapeHtml(webhook.event.paymentMethod)}
           </div>
         `;
         historyEl.appendChild(item);
@@ -607,6 +740,9 @@ function setDefaultCommencementDate() {
 function copyToClipboard(text) {
   navigator.clipboard.writeText(text).then(() => {
     showToast('Copied to clipboard!', 'success');
+  }).catch(err => {
+    console.error('Failed to copy:', err);
+    showToast('Failed to copy', 'error');
   });
 }
 
@@ -616,9 +752,24 @@ function copyBillUrl() {
 }
 
 function copyCode(btn) {
-  const code = btn.previousElementSibling.textContent;
+  const code = btn.previousElementSibling.textContent.trim();
   copyToClipboard(code);
+
+  // Visual feedback
+  const originalText = btn.textContent;
+  btn.textContent = 'Copied!';
+  btn.style.background = 'var(--success)';
+  btn.style.color = 'white';
+
+  setTimeout(() => {
+    btn.textContent = originalText;
+    btn.style.background = '';
+    btn.style.color = '';
+  }, 2000);
 }
+
+// Make copyToClipboard globally available
+window.copyToClipboard = copyToClipboard;
 
 // Toast Notifications
 function showToast(message, type = 'info') {

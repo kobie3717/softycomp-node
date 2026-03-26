@@ -7,9 +7,10 @@
 const { SoftyComp } = require('./dist/index.js');
 
 // Initialize client (sandbox mode)
+// Credentials default to sandbox test keys for demo purposes
 const client = new SoftyComp({
-  apiKey: '97E932D2-EC27-4583-B8E4-EDC87C8019BA', // Test API key from memory
-  secretKey: 'OEPQKMxopavCtvmvwE3Y',               // Test secret from memory
+  apiKey: process.env.SOFTYCOMP_API_KEY || '97E932D2-EC27-4583-B8E4-EDC87C8019BA',
+  secretKey: process.env.SOFTYCOMP_SECRET_KEY || 'OEPQKMxopavCtvmvwE3Y',
   sandbox: true,
 });
 
